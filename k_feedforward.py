@@ -14,7 +14,7 @@ class SparselyConnected(tf.keras.constraints.Constraint):
     self.adj_matrix = adj_matrix
 
   def __call__(self, w):
-    return w*adj_matrix
+    return tf.math.multiply(w,adj_matrix)
 
   def get_config(self):
     return {'adj_matrix': self.adj_matrix}
@@ -55,9 +55,23 @@ def define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
 	    model2 = tf.keras.layers.Dense(HL2N,
 			 activation=tf.nn.tanh,
 			 kernel_constraint=SparselyConnected(mask2))(model)
+            model2 = tf.clip_by_value(model2, -1,0) + 1 # rescale
         predict = tf.keras.layers.Dense(1)(model2)
 
         model = tf.keras.Model(inputs=my_input, outputs=predict)
 	model.set_weights([W1,b1,W2,b2,W3, np.array([np.sum(W3)])])
+	model.set_weights([W1,b1,W2,b2,2*W3, np.array([0])])
+	model.set_weights([W1,b1,W2,b2,W3, 2*W3[-1]]) # last tree is bias
 	# getting highly correlated but not identical values to actual forest
+        # off by a factor of 2 in the W3 values?  But tanh is +-1?
+        # do we really want a sigmoid here?
+
+        # need a bigger strength param perhaps?
+        # that might be it, try very big, 100000
+        # and fix bias term, increase strenght12
+
+        # two results are off...from the sklearn forest, same two that it was wrong?
+        # all weirdly biased, issue is the tanh kills off a few terms
+        # getting zeros in output of first and 2nd layer
+        # first layer not an issue, but second layer is problem
 
