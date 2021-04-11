@@ -42,8 +42,8 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
     if init_parameters:
         W1, b1, W2, b2, W3 = init_parameters
 
+    my_input = tf.keras.Input(shape=(n_inputs,))
     if n_layers == 2:   # default case.
-        my_input = tf.keras.Input(shape=(n_inputs,))
         if init_parameters and keep_sparse:
             mask1 = tf.cast(W1 != 0, tf.float32)
             model = tf.keras.layers.Dense(HL1N,
@@ -70,7 +70,20 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
     #model.set_weights([W1,b1,W2,b2,W3, np.array([np.sum(W3)])])
         if use_weights and init_parameters:
             model.set_weights([W1,b1,W2,b2,2*W3, np.array([0])]) # b/c we rescale, double w3 and no need for bias term
-        return model
+    # standard 1-layer MLP
+    elif n_layers == 1:
+        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
+        predict = tf.keras.layers.Dense(1)(model)
+        model = tf.keras.Model(inputs=my_input, outputs=predict)
+    # fully connect 3-layer MLP of same size as forest
+    elif n_layers == 3:
+        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
+        model2 = tf.keras.layers.Dense(HL2N,
+            activation=tf.nn.tanh,
+            )(model)
+        predict = tf.keras.layers.Dense(1)(model2)
+        model = tf.keras.Model(inputs=my_input, outputs=predict)
+    return model
     #model.set_weights([W1,b1,W2,b2,W3, 2*W3[-1]]) # last tree is bias
     # getting highly correlated but not identical values to actual forest
         # off by a factor of 2 in the W3 values?  But tanh is +-1?
