@@ -2,7 +2,12 @@ import numpy as np
 import sys
 from dataloader import load_data
 from forest_fitting import fit_random_forest
-from lgb_fitting import TrainGBDT
+from bart import fit_bart
+import warnings
+try:
+    from lgb_fitting import TrainGBDT
+except ImportError:
+    warnings.warn("Problem import LightGBM")
 from feedforward import run_neural_net
 from initialiser import get_network_initialisation_parameters
 from individually_trained import individually_trained_networks
@@ -34,7 +39,7 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     # XTrain, XValid, XTest, YTrain, YValid, YTest
 
     # forest hyperparameters
-    ntrees = 100
+    ntrees = 150
     depth = 6
     tree_lr = 0.15
     maxleaf = 100
@@ -43,6 +48,8 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     # train a random regression forest model
     if tree_model == 'randomforest':
         model, model_results = fit_random_forest(data, ntrees, depth, verbose=True)
+    elif tree_model == 'bart':
+        model, model_results = fit_bart(data, ntrees, verbose=True)
     else:
         model, model_results = TrainGBDT(data, lr=tree_lr, num_trees=ntrees, maxleaf=maxleaf, mindata=mindata)
 
@@ -60,8 +67,8 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=False)
-    method2_sparse,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=True)
+    method2_full,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
+    method2_sparse,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
 
     results = {
         tree_model: model_results[2],

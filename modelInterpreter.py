@@ -5,7 +5,7 @@ class modelInterpreter(object):
     def __init__(self, model, tree_model):
         print("Model Interpreting...")
         self.tree_model = tree_model
-        if tree_model == 'randomforest':
+        if tree_model == 'randomforest' or tree_model == 'bart':
             from forest_functions import GetTreeSplits, GetChildren
             self.n_features_ = model.n_features_
         else:

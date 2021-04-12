@@ -1,16 +1,29 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.framework import ops
 import math
-tf.set_random_seed(42)
 
+'''
+Keras-based feedforward module
+'''
 
-def define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
-                        keep_sparse=True, n_layers=2):
+## use weight constraint to enforce sparse connections, not efficient...
+class SparselyConnected(tf.keras.constraints.Constraint):
+  """Constrains weight tensors to be sparsely connected according to `adj_matrix`"""
+
+  def __init__(self, adj_matrix):
+    self.adj_matrix = adj_matrix
+
+  def __call__(self, w):
+    return tf.math.multiply(w,self.adj_matrix)
+
+  def get_config(self):
+    return {'adj_matrix': self.adj_matrix}
+
+def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
+                        keep_sparse=True, n_layers=2, use_weights=True):
     """
     Defines a Multilayer Perceptron (MLP) model.
     Inputs:
-        - X: tf placeholder [batchsize, n_inputs] for feature inputs
         - init_parameters: tuple of numpy arrays (or None), holding values to initialise
                 the network weight matrices (and biases). If None, random values are
                 used for network initialisation.
@@ -26,72 +39,69 @@ def define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
         - predictions: tf tensor holding model predictions
     """
 
+    if init_parameters:
+        W1, b1, W2, b2, W3 = init_parameters
+
+    my_input = tf.keras.Input(shape=(n_inputs,))
     if n_layers == 2:   # default case.
-
-        # set the inital network parameter values, either to random, ...
-        if init_parameters is None:
-            # random initial parameters
-            W_01 = tf.Variable(tf.random_normal([n_inputs, HL1N], 0.0, sigma))
-            W_12 = tf.Variable(tf.random_normal([HL1N, HL2N], 0.0, sigma))
-            W_23 = tf.Variable(tf.random_normal([HL2N, 1], 0.0, sigma))
-            b_1 = tf.Variable(tf.random_normal([HL1N], 0.0, sigma))
-            b_2 = tf.Variable(tf.random_normal([HL2N], 0.0, sigma))
-            b_3 = tf.Variable(tf.random_normal([1], 0.0, sigma))
-
+        if init_parameters and keep_sparse:
+            mask1 = tf.cast(W1 != 0, tf.float32)
+            model = tf.keras.layers.Dense(HL1N,
+                activation=tf.nn.tanh,
+                kernel_constraint=SparselyConnected(mask1))(my_input)
         else:
-            # ... or to the specific values induced by the Random-Forest
-            W1, b1, W2, b2, W3 = init_parameters
+            model = tf.keras.layers.Dense(HL1N,
+                activation=tf.nn.tanh,
+                )(my_input)
+        if init_parameters and keep_sparse:
+            mask2 = tf.cast(W2 != 0, tf.float32)
+            model2 = tf.keras.layers.Dense(HL2N,
+                activation=tf.nn.tanh,
+                kernel_constraint=SparselyConnected(mask2))(model)
+        else:
+            model2 = tf.keras.layers.Dense(HL2N,
+                activation=tf.nn.tanh,
+                )(model)
 
-            W_01 = tf.Variable(W1)
-            W_12 = tf.Variable(W2)
-            W_23 = tf.Variable(W3)
-            b_1 = tf.Variable(b1)
-            b_2 = tf.Variable(b2)
-            b_3 = tf.Variable( np.sum(W3) )
+        model2 = tf.clip_by_value(model2, -1,0) + 1 # rescale to avoid bad clipping
+        predict = tf.keras.layers.Dense(1)(model2)
 
-            if keep_sparse:
-                mask1 = tf.constant(np.float32(W1!=0.0))
-                mask2 = tf.constant(np.float32(W2!=0.0))
-                W_01 = tf.multiply(mask1, W_01)
-                W_12 = tf.multiply(mask2, W_12)
+        model = tf.keras.Model(inputs=my_input, outputs=predict)
+    #model.set_weights([W1,b1,W2,b2,W3, np.array([np.sum(W3)])])
+        if use_weights and init_parameters:
+            model.set_weights([W1,b1,W2,b2,2*W3, np.array([0])]) # b/c we rescale, double w3 and no need for bias term
+    # standard 1-layer MLP
+    elif n_layers == 1:
+        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
+        predict = tf.keras.layers.Dense(1)(model)
+        model = tf.keras.Model(inputs=my_input, outputs=predict)
+    # fully connect 3-layer MLP of same size as forest
+    elif n_layers == 3:
+        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
+        model2 = tf.keras.layers.Dense(HL2N,
+            activation=tf.nn.tanh,
+            )(model)
+        predict = tf.keras.layers.Dense(1)(model2)
+        model = tf.keras.Model(inputs=my_input, outputs=predict)
+    return model
+    #model.set_weights([W1,b1,W2,b2,W3, 2*W3[-1]]) # last tree is bias
+    # getting highly correlated but not identical values to actual forest
+        # off by a factor of 2 in the W3 values?  But tanh is +-1?
+        # do we really want a sigmoid here?
 
-        # defining the network with the given weights/biases
-        h = tf.nn.tanh(tf.matmul(X, W_01) + b_1)
-        h2 = tf.nn.tanh(tf.matmul(h, W_12) + b_2 )
-        prediction = tf.matmul(h2, W_23) + b_3
+        # need a bigger strength param perhaps?
+        # that might be it, try very big, 100000
+        # and fix bias term, increase strenght12
 
-
-    elif n_layers == 1:   # standard 1-layer MLP, initialised randomly
-        W_01 = tf.Variable(tf.random_normal([n_inputs, HL1N], 0.0, sigma))
-        W_12 = tf.Variable(tf.random_normal([HL1N, 1], 0.0, sigma))
-        b_1 = tf.Variable(tf.random_normal([HL1N], 0.0, sigma))
-        b_2 = tf.Variable(tf.random_normal([1], 0.0, sigma))
-        h = tf.nn.tanh(tf.matmul(X, W_01) + b_1)
-        prediction = tf.matmul(h, W_12) + b_2
-
-    elif n_layers == 3:   # standard 3-layer MLP, initialised randomly
-        W_01 = tf.Variable(tf.random_normal([n_inputs, HL1N], 0.0, sigma))
-        W_12 = tf.Variable(tf.random_normal([HL1N, HL2N], 0.0, sigma))
-        W_23 = tf.Variable(tf.random_normal([HL2N, HL2N], 0.0, sigma))
-        W_34 = tf.Variable(tf.random_normal([HL2N, 1], 0.0, sigma))
-        b_1 = tf.Variable(tf.random_normal([HL1N], 0.0, sigma))
-        b_2 = tf.Variable(tf.random_normal([HL2N], 0.0, sigma))
-        b_3 = tf.Variable(tf.random_normal([HL2N], 0.0, sigma))
-        b_4 = tf.Variable(tf.random_normal([1], 0.0, sigma))
-
-        h = tf.nn.tanh(tf.matmul(X, W_01) + b_1)
-        h2 = tf.nn.tanh(tf.matmul(h, W_12) + b_2 )
-        h3 = tf.nn.tanh(tf.matmul(h2, W_23) + b_3 )
-        prediction = tf.matmul(h3, W_34) + b_4
-
-    return prediction
-
-
+        # two results are off...from the sklearn forest, same two that it was wrong?
+        # all weirdly biased, issue is the tanh kills off a few terms
+        # getting zeros in output of first and 2nd layer
+        # first layer not an issue, but second layer is problem
 
 
 def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
                    verbose=True, learning_rate=0.001, forest=None, keep_sparse=True,
-                   batchsize=32, n_iterations=30):
+                   batchsize=32, n_iterations=30, debug=False):
     """
     Trains / evaluates a Multilayer perceptron (MLP), potentially with a prespecified
     weight matrix initialisation.
@@ -111,26 +121,26 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     - n_iterations: Number of training epochs
     """
 
-    import pdb
-    pdb.set_trace()
+    if debug:
+        import pdb
+        pdb.set_trace()
     if verbose:
         print("training MLP...")
     XTrain, XValid, XTest, YTrain, YValid, YTest = data
     n_samples, n_inputs = XTrain.shape
     batchsize = min(batchsize, n_samples)
-    ops.reset_default_graph()
+    #ops.reset_default_graph()
 
-
-    # placeholders
-    X = tf.placeholder("float", [None, n_inputs])
-    Y = tf.placeholder("float", [None, 1])
 
     # forward pass
-    prediction = define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
+    model = define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
+    #prediction = lambda X: define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
 
     # defining a RMSE objective function
-    loss = tf.reduce_mean(tf.pow(prediction - Y, 2) )
-    optimiser = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+    #loss = tf.reduce_mean(input_tensor=tf.pow(prediction - Y, 2) )
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
+    #optimiser = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss)
+    model.compile(loss='mse', optimizer=optimizer)
 
     # define minibatch boundaries
     batch_boundaries = list(zip(range(0, n_samples, batchsize), \
@@ -144,41 +154,38 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     RMSE_train, RMSE_valid, RMSE_test = [], [], []
     pred_test_store = []
 
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        for i in range(n_iterations):
-            #shuffle training data new in every epoch
-            perm = np.random.permutation(n_samples)
-            XTrain = XTrain[perm,:]
-            YTrain = YTrain[perm]
+    for i in range(n_iterations):
+        #shuffle training data new in every epoch
+        perm = np.random.permutation(n_samples)
+        XTrain = XTrain[perm,:]
+        YTrain = YTrain[perm]
 
 
-            for start, end in batch_boundaries:
-                #feed in training data minibatch-wise
-                sess.run(optimiser, feed_dict = {X: XTrain[start:end], \
-                                                Y: YTrain[start:end]})
-                # import pdb
-                # pdb.set_trace()
+        ## do (possibly additional) training
+        model.fit(XTrain, YTrain, batch_size=batchsize)
 
-            pred_train = EvalTestset(sess, X, Y, XTrain, YTrain, prediction)
-            pred_test = EvalTestset(sess, X, Y, XTest, YTest, prediction)
-            # pred_train = sess.run(prediction, feed_dict={X: XTrain, Y: YTrain})
-            # pred_valid = sess.run(prediction, feed_dict={X: XValid[:128], Y: YValid[:128]})
-            # pred_test = sess.run(prediction, feed_dict={X: XTest, Y: YTest})
-            pred_test_store.append(pred_test)
+        pred_train = model.predict(XTrain)
+        pred_test = model.predict(XTest)
+        pred_valid = model.predict(XValid)
+        #pred_train = EvalTestset(sess, X, Y, XTrain, YTrain, model)
+        #pred_test = EvalTestset(sess, X, Y, XTest, YTest, model)
+        # pred_train = sess.run(prediction, feed_dict={X: XTrain, Y: YTrain})
+        # pred_valid = sess.run(prediction, feed_dict={X: XValid[:128], Y: YValid[:128]})
+        # pred_test = sess.run(prediction, feed_dict={X: XTest, Y: YTest})
+        pred_test_store.append(pred_test)
 
-            diff_train = YTrain - pred_train
-            RMSE_train.append(np.mean(np.square(diff_train ) ) )
+        diff_train = YTrain - pred_train
+        RMSE_train.append(np.mean(np.square(diff_train ) ) )
 
-            # diff_valid = YValid - pred_valid
-            # RMSE_valid.append(np.mean(np.square(diff_valid ) ) ) 
+        diff_valid = YValid - pred_valid
+        RMSE_valid.append(np.mean(np.square(diff_valid ) ) ) 
 
-            diff_test = YTest - pred_test
-            RMSE_test.append( np.mean(np.square(diff_test ) ) ) 
-            if verbose:
-                printstring = "Epoch: {}, Train/Test RMSE: {}"\
-                        .format(i, np.array([RMSE_train[-1], RMSE_test[-1]]))
-                print (printstring)
+        diff_test = YTest - pred_test
+        RMSE_test.append( np.mean(np.square(diff_test ) ) ) 
+        if verbose:
+            printstring = "Epoch: {}, Train/Test RMSE: {}"\
+                    .format(i, np.array([RMSE_train[-1], RMSE_test[-1]]))
+            print (printstring)
 
 
     # minimum validation error
@@ -187,7 +194,6 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
         print ("argmin at", amin )
         print ("valid:", RMSE_valid[amin] )
         print ("test:", RMSE_test[amin] )
-
 
 
     if forest is None:  # vanilla neural net
@@ -211,20 +217,4 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
             # Case No -- return tuned model score / predictions
             return RMSE_test[amin], pred_test_store[amin]
 
-def EvalTestset(sess, X, Y_, test_x, test_y, prediction, test_batch_size = 128):
-    tst_len = len(test_x)
-    tst_batch_num = math.ceil(tst_len / test_batch_size)
-    Loss_tst = 0.0
-    Acc_tst = 0.0
-    y_preds = []
-    for jdx in range(tst_batch_num):
-        tst_st = jdx * test_batch_size
-        tst_ed = min(tst_len, tst_st + test_batch_size)
-        feed_dict_tst = {
-            X: test_x[tst_st:tst_ed], 
-            Y_: test_y[tst_st:tst_ed],
-        }
-        pred_train = sess.run(prediction, feed_dict=feed_dict_tst)
-        y_preds.append(pred_train)
-    y_preds = np.concatenate(y_preds, 0)
-    return y_preds
+

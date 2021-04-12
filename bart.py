@@ -10,7 +10,8 @@ bart = importr('BART')
 
 wbart = bart.wbart
 
-def fit_bart(data, ntrees=30, depth=6, random_state=42, verbose=False):
+# TODO: set bart params here
+def fit_bart(data, ntrees=30, random_state=42, verbose=False):
     """
     Fits a bart forest to some data and returns the model.
 
@@ -34,9 +35,28 @@ def fit_bart(data, ntrees=30, depth=6, random_state=42, verbose=False):
     # need cutpoints as well
     cuts = [np.array(c) for c in rb.rx2['treedraws'].rx2['cutpoints']]
 
+    # translate trees to sklearn
     trees = parse_trees(treelines, cuts)
+
+    # build sklearn model
     model = make_dummy_trees(trees, np.mean(YTrain), XTrain.shape[1])
-    return model
+
+    # generate predictions
+    bart_predictions_train = model.predict(XTrain)
+    bart_predictions_valid = model.predict(XValid)
+    bart_predictions_test = model.predict(XTest)
+
+    # compute RMSE metrics for predictions
+    bart_score_train = np.mean (np.square(bart_predictions_train-np.squeeze(YTrain) ) )
+    bart_score_valid = np.mean (np.square(bart_predictions_valid-np.squeeze(YValid) ) )
+    bart_score_test = np.mean (np.square(bart_predictions_test-np.squeeze(YTest) ) ) 
+    if verbose:
+        print ("bart score (RMSE) train: ", bart_score_train)
+        print ("bart score (RMSE) valid: ", bart_score_valid)
+        print ("bart score (RMSE) test: ", bart_score_test)
+    model_results = (bart_score_train, bart_score_valid, bart_score_test)
+
+    return model, model_results
 
 
 def parse_trees(treelines, cuts):

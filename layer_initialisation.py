@@ -233,8 +233,8 @@ def InitThirdLayer(modelI, leaf_neurons):
 
         # compute  weights to output layer
         for k in range(len(leaf_values)):
-            if modelI.tree_model == 'randomforest':
-                W3[tree_neurons[k]] = leaf_values[k] / float(ntrees) * 0.5
+            if modelI.tree_model == 'randomforest' or modelI.tree_model == 'bart' :
+                W3[tree_neurons[k]] = np.array(leaf_values[k]) / float(ntrees) * 0.5
             else:
                 W3[tree_neurons[k]] = leaf_values[k] * 0.5
     return W3

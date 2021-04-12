@@ -1,6 +1,6 @@
 import numpy as np
 from tqdm import tqdm
-import tensorflow
+import tensorflow as tf
 from forest_fitting import fit_random_forest
 from initialiser import get_network_initialisation_parameters
 from feedforward import run_neural_net
