@@ -44,12 +44,14 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     tree_lr = 0.15
     maxleaf = 100
     mindata = 40
+    power = 2
+    base = .95
 
     # train a random regression forest model
     if tree_model == 'randomforest':
         model, model_results = fit_random_forest(data, ntrees, depth, verbose=True)
     elif tree_model == 'bart':
-        model, model_results = fit_bart(data, ntrees, verbose=True)
+        model, model_results = fit_bart(data, ntrees, verbose=True, power=power, base=base)
     else:
         model, model_results = TrainGBDT(data, lr=tree_lr, num_trees=ntrees, maxleaf=maxleaf, mindata=mindata)
 

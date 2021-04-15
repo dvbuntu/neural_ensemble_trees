@@ -66,5 +66,5 @@ def TrainGBDT(data, lr, num_trees, maxleaf, mindata, verbose=True):
     preds = preds.astype(np.float32)
     # score_train = np.sqrt( np.mean (np.square(preds-np.squeeze(train_y) ) )  )
     preds = gbm.predict(test_x, raw_score=True)
-    score_test = np.mean (np.square(preds-np.squeeze(test_y) ) )
+    score_test = np.sqrt(np.mean (np.square(preds-np.squeeze(test_y) ) ))
     return gbm, (None, None, score_test)

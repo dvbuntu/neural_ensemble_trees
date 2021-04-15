@@ -175,13 +175,13 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
         pred_test_store.append(pred_test)
 
         diff_train = YTrain - pred_train
-        RMSE_train.append(np.mean(np.square(diff_train ) ) )
+        RMSE_train.append(np.sqrt(np.mean(np.square(diff_train ) ) ))
 
         diff_valid = YValid - pred_valid
-        RMSE_valid.append(np.mean(np.square(diff_valid ) ) ) 
+        RMSE_valid.append(np.sqrt(np.mean(np.square(diff_valid ) ) ) )
 
         diff_test = YTest - pred_test
-        RMSE_test.append( np.mean(np.square(diff_test ) ) ) 
+        RMSE_test.append(np.sqrt( np.mean(np.square(diff_test ) ) ) )
         if verbose:
             printstring = "Epoch: {}, Train/Test RMSE: {}"\
                     .format(i, np.array([RMSE_train[-1], RMSE_test[-1]]))

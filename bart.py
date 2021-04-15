@@ -11,7 +11,7 @@ bart = importr('BART')
 wbart = bart.wbart
 
 # TODO: set bart params here
-def fit_bart(data, ntrees=30, random_state=42, verbose=False):
+def fit_bart(data, ntrees=30, random_state=42, verbose=False, power=2, base=.95):
     """
     Fits a bart forest to some data and returns the model.
 
@@ -27,7 +27,7 @@ def fit_bart(data, ntrees=30, random_state=42, verbose=False):
     rxtest = r.r.matrix(XValid, nrow=XValid.shape[0], ncol=XValid.shape[1])
 
     # train bart
-    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees)
+    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees, power=power, base=base)
 
     # lines of trees
     treelines = rb.rx2['treedraws'].rx2['trees'][0].split('\n')
@@ -47,9 +47,9 @@ def fit_bart(data, ntrees=30, random_state=42, verbose=False):
     bart_predictions_test = model.predict(XTest)
 
     # compute RMSE metrics for predictions
-    bart_score_train = np.mean (np.square(bart_predictions_train-np.squeeze(YTrain) ) )
-    bart_score_valid = np.mean (np.square(bart_predictions_valid-np.squeeze(YValid) ) )
-    bart_score_test = np.mean (np.square(bart_predictions_test-np.squeeze(YTest) ) ) 
+    bart_score_train = np.sqrt(np.mean (np.square(bart_predictions_train-np.squeeze(YTrain) ) ))
+    bart_score_valid = np.sqrt(np.mean (np.square(bart_predictions_valid-np.squeeze(YValid) ) ))
+    bart_score_test = np.sqrt(np.mean (np.square(bart_predictions_test-np.squeeze(YTest) ) ) )
     if verbose:
         print ("bart score (RMSE) train: ", bart_score_train)
         print ("bart score (RMSE) valid: ", bart_score_valid)
