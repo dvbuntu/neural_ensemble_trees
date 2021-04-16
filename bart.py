@@ -91,17 +91,19 @@ def parse_trees(treelines, cuts):
             cut = int(cut)
             thresh = cuts[var][cut]
             val = float(th)
-            # leaf node
-            if var == cut == 0:
-                row = (-1,-1,-2, thresh, 0, 1,1)
-            else: # another branch
-                # need to renumber these to fit expected sklearn pattern
-                ## and change to 0-based indexing in python
-                row = (2*node, 2*node+1, var, thresh, 1, 1, 1) # dummy values
+            # need to renumber these to fit expected sklearn pattern
+            ## and change to 0-based indexing in python
+            row = (2*node, 2*node+1, var, thresh, 1, 1, 1) # dummy values
             rows[node] = row
             values[node] = val
             new2old[i] = node
             old2new[node] = i
+        # identify leaf nodes (no children)
+        for k,v in rows.items():
+            # leaf node
+            if 2*k not in rows:
+                tmp = rows[k]
+                rows[k] = (-1,-1,-2, tmp[3], 0, 1, 1)
         # fix node labels
         for i in range(nodes):
             k = new2old[i]
