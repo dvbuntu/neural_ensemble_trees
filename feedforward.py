@@ -162,7 +162,7 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
 
 
         ## do (possibly additional) training
-        model.fit(XTrain, YTrain, batch_size=batchsize)
+        model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose)
 
         pred_train = model.predict(XTrain)
         pred_test = model.predict(XTest)

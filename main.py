@@ -17,7 +17,16 @@ np.random.seed(44)
 np.set_printoptions(precision=4, suppress=True)
 
 
-def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
+def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
+    ntrees = 150,
+    depth = 6,
+    tree_lr = 0.15,
+    maxleaf = 100,
+    mindata = 40,
+    power = 2,
+    base = .95,
+    verbose=False,
+        ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
     - a random forest
@@ -38,20 +47,11 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     # General format of data: 6-tuple
     # XTrain, XValid, XTest, YTrain, YValid, YTest
 
-    # forest hyperparameters
-    ntrees = 150
-    depth = 6
-    tree_lr = 0.15
-    maxleaf = 100
-    mindata = 40
-    power = 2
-    base = .95
-
     # train a random regression forest model
     if tree_model == 'randomforest':
-        model, model_results = fit_random_forest(data, ntrees, depth, verbose=True)
+        model, model_results = fit_random_forest(data, ntrees, depth, verbose=verbose)
     elif tree_model == 'bart':
-        model, model_results = fit_bart(data, ntrees, verbose=True, power=power, base=base)
+        model, model_results = fit_bart(data, ntrees, verbose=verbose, power=power, base=base)
     else:
         model, model_results = TrainGBDT(data, lr=tree_lr, num_trees=ntrees, maxleaf=maxleaf, mindata=mindata)
 
@@ -62,15 +62,15 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,_ = run_neural_net(data, init_parameters=None, HL1N=HL1N, HL2N=HL2N, verbose=True)
+    NN2,_ = run_neural_net(data, init_parameters=None, HL1N=HL1N, HL2N=HL2N, verbose=verbose)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
-    method2_sparse,_ = run_neural_net(data, init_parameters, verbose=True, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
+    method2_full,_ = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
+    method2_sparse,_ = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
 
     results = {
         tree_model: model_results[2],
@@ -87,11 +87,39 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm'):
 
 
 if __name__ == "__main__":
-    args = sys.argv
-    if len(args) > 1:
-        dataset = args[-2]
-        tree_model = args[-1]
-    else:
-        dataset = "mpg"
-        tree_model = 'lightgbm'
-    _ = neural_random_forest(dataset, tree_model)
+    import argparse
+    parser = argparse.ArgumentParser(description='Try various neural network extractions of classic algorithms')
+    parser.add_argument('-m','--method', action='append',
+                            default=[],
+                            help='Add this method to try (randomforest, bart, etc)')
+    parser.add_argument('-s','--dataset', action='append',
+                            default=[],
+                            help='Add this data (wisconsin, etc)')
+    parser.add_argument('-n','--ntrees', default=150, type=int, help='Use this many trees')
+    parser.add_argument('-p','--power', default=2, type=float, help='BART power parameter')
+    parser.add_argument('-b','--base', default=.95, type=float, help='BART base parameter')
+    parser.add_argument('-v','--verbose', default=False, action="store_true", help='Verbose flag')
+    parser.add_argument('-d','--depth', default=6, type=int, help='RF max depth')
+    parser.add_argument('-l','--tree_lr', default=0.15, type=float, help='RF learning rate')
+    parser.add_argument('--maxleaf', default=100, type=int, help='RF max number of leaves')
+    parser.add_argument('--mindata', default=40, type=int, help='RF min data required')
+    parser.add_argument('--seed', default=44, type=int, help='Random seed')
+    args = parser.parse_args()
+    if not args.method:
+        args.method=['randomforest']
+    args.method = set(args.method)
+    if not args.dataset:
+        args.dataset=['wisconsin']
+    args.dataset = set(args.dataset)
+    for dataset in args.dataset:
+        for tree_model in args.method:
+            _ = neural_random_forest(dataset, tree_model,
+                    args.ntrees,
+                    args.depth,
+                    args.tree_lr,
+                    args.maxleaf,
+                    args.mindata,
+                    args.power,
+                    args.base,
+                    args.verbose)
+                

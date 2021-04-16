@@ -27,7 +27,11 @@ def fit_bart(data, ntrees=30, random_state=42, verbose=False, power=2, base=.95)
     rxtest = r.r.matrix(XValid, nrow=XValid.shape[0], ncol=XValid.shape[1])
 
     # train bart
-    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees, power=power, base=base)
+    if verbose:
+        printevery = 100
+    else:
+        printevery = 100000 # can't see how to silence bart
+    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees, power=power, base=base, printevery=printevery)
 
     # lines of trees
     treelines = rb.rx2['treedraws'].rx2['trees'][0].split('\n')

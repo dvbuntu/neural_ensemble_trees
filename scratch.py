@@ -40,3 +40,8 @@ method3_full,_ = run_neural_net(data, init_parameters,
 
 #RuntimeError: tf.placeholder() is not compatible with eager execution.
 # need to sort this out.  Might be easier to reroll with keras
+
+##rf
+# RMSE: {'randomforest': 40.22405954173736, 'NN2': 33.678523275861814, 'NRF2 full': 37.5213766559505, 'NRF2 sparse': 37.74709911047756}
+## bart
+# RMSE: {'bart': 35.61804841560612, 'NN2': 41.26699087356276, 'NRF2 full': 34.585775930395904, 'NRF2 sparse': 34.56567196957474}
