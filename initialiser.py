@@ -3,7 +3,7 @@ from layer_initialisation import InitSecondLayer
 from layer_initialisation import InitThirdLayer
 from modelInterpreter import modelInterpreter
 
-def get_network_initialisation_parameters(model, strength01=100.0, strength12=1.0, tree_model='lightgbm'):
+def get_network_initialisation_parameters(model, strength01=100.0, strength12=1.0, tree_model='lightgbm', verbose=True):
     """
     Given a pre-trained random forest model, this function returns as numpy arrays
     the weights and biases for initialising a 2-layer feedforward neural network.
@@ -11,7 +11,7 @@ def get_network_initialisation_parameters(model, strength01=100.0, strength12=1.
     the continuous neural network nonlinearity will approximate a discrete step function
     """
 
-    modelI = modelInterpreter(model, tree_model)
+    modelI = modelInterpreter(model, tree_model, verbose)
 
     # get network parameters for first hidden layer
     W1, b1, nodelist1 = InitFirstLayer(modelI, strength01)

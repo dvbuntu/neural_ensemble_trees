@@ -31,7 +31,8 @@ def individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbos
     # keep track for each individual tree in the forest
     individual_network_errors, individual_network_predictions = [], []
 
-    print("Tuning MLPs individually for a total of {} trees. Weight sparsity enforced: {}".format(str(ntrees), str(keep_sparse)))
+    if verbose:
+        print("Tuning MLPs individually for a total of {} trees. Weight sparsity enforced: {}".format(str(ntrees), str(keep_sparse)))
     for i in tqdm(range(ntrees)):   # loop over trees
 
         if verbose:
@@ -55,7 +56,7 @@ def individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbos
         RF_score_v = np.sqrt( np.mean (np.square(diff_v) )  )
 
         # extract network initialisation parameters for network based on one tree
-        init_parameters = get_network_initialisation_parameters(rf)
+        init_parameters = get_network_initialisation_parameters(rf, verbose=verbose)
 
         # train network
         RMSE, pred = run_neural_net(data, init_parameters,

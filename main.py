@@ -8,6 +8,11 @@ try:
     from lgb_fitting import TrainGBDT
 except ImportError:
     warnings.warn("Problem import LightGBM")
+try:
+    from tqdm import tqdm
+except ImportError:
+    warnings.warn("No progress bar avaialble")
+    tqdm = lambda x: x
 from feedforward import run_neural_net
 from initialiser import get_network_initialisation_parameters
 from individually_trained import individually_trained_networks
@@ -26,7 +31,9 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     power = 2,
     base = .95,
     verbose=False,
-        ):
+    strength01=100,
+    strength12=1,
+    ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
     - a random forest
@@ -37,7 +44,7 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     # pick a regression dataset
     dataset_names = ["boston", "concrete", "crimes", "fires", "mpg", "wisconsin", "protein", "yahoo"]
     if not dataset_name or dataset_name not in dataset_names:
-        dataset_name = "mpg"  # set as default dataset
+        dataset_name = "wisconsin"  # set as default dataset
 
     # load the dataset, with randomised train/dev/test split
     data = load_data(dataset_name, seed=np.random.randint(0,100000,10)[0])
@@ -56,21 +63,22 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
         model, model_results = TrainGBDT(data, lr=tree_lr, num_trees=ntrees, maxleaf=maxleaf, mindata=mindata)
 
     # derive initial neural network parameters from the trained trees model
-    init_parameters = get_network_initialisation_parameters(model, tree_model=tree_model)
+    init_parameters = get_network_initialisation_parameters(model, tree_model=tree_model, verbose=verbose, strength01=strength01, strength12=strength12)
 
     # determine layer size for layers 1 and 2 in the 2-layer MLP
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,_ = run_neural_net(data, init_parameters=None, HL1N=HL1N, HL2N=HL2N, verbose=verbose)
+    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=HL1N, HL2N=HL2N, verbose=verbose)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,_ = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
-    method2_sparse,_ = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
+    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
+    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
+    method2_sparse_fresh,M4 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False)
 
     results = {
         tree_model: model_results[2],
@@ -78,11 +86,13 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
         # "NRF1 full": method1_full,
         # "NRF1 sparse": method1_sparse,
         "NRF2 full": method2_full,
-        "NRF2 sparse": method2_sparse
+        "NRF2 sparse": method2_sparse,
+        "NRF2 sparse no weights": method2_sparse_fresh,
         }
 
-    print("RMSE:", results)
-    return results
+    if verbose:
+        print("RMSE:", results)
+    return results, model
 
 
 
@@ -104,6 +114,8 @@ if __name__ == "__main__":
     parser.add_argument('--maxleaf', default=100, type=int, help='RF max number of leaves')
     parser.add_argument('--mindata', default=40, type=int, help='RF min data required')
     parser.add_argument('--seed', default=44, type=int, help='Random seed')
+    parser.add_argument('--strength01', default=100, type=float, help='Splitting node NN conversion strength')
+    parser.add_argument('--strength12', default=1, type=float, help='Leaf node NN conversion strength')
     args = parser.parse_args()
     if not args.method:
         args.method=['randomforest']
@@ -111,9 +123,10 @@ if __name__ == "__main__":
     if not args.dataset:
         args.dataset=['wisconsin']
     args.dataset = set(args.dataset)
-    for dataset in args.dataset:
-        for tree_model in args.method:
-            _ = neural_random_forest(dataset, tree_model,
+    res = dict()
+    for dataset in tqdm(args.dataset):
+        for tree_model in tqdm(args.method):
+            ans, model = neural_random_forest(dataset, tree_model,
                     args.ntrees,
                     args.depth,
                     args.tree_lr,
@@ -121,5 +134,9 @@ if __name__ == "__main__":
                     args.mindata,
                     args.power,
                     args.base,
-                    args.verbose)
-                
+                    args.verbose,
+                    args.strength01,
+                    args.strength12)
+            res[(dataset, tree_model)] = ans
+    if args.verbose:
+        print(res)

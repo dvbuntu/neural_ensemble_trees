@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import warnings
 
 def load_data():
     filename = "datasets/data/wisconsin/wpbc.data.txt"
@@ -25,6 +26,6 @@ def load_data():
             Y[i] = num[0]
             i +=1
         except ValueError:
-            print ("Discarding row {}: non-numeric input.".format(i))
+            warnings.warn("Discarding row {}: non-numeric input.".format(i))
 
     return X,Y

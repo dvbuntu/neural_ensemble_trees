@@ -101,7 +101,7 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
 
 def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
                    verbose=True, learning_rate=0.001, forest=None, keep_sparse=True,
-                   batchsize=32, n_iterations=30, debug=False):
+                   batchsize=32, n_iterations=30, debug=False, use_weights=True):
     """
     Trains / evaluates a Multilayer perceptron (MLP), potentially with a prespecified
     weight matrix initialisation.
@@ -133,7 +133,7 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
 
 
     # forward pass
-    model = define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
+    model = define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers, use_weights=use_weights)
     #prediction = lambda X: define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
 
     # defining a RMSE objective function
@@ -154,38 +154,49 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     RMSE_train, RMSE_valid, RMSE_test = [], [], []
     pred_test_store = []
 
-    for i in range(n_iterations):
-        #shuffle training data new in every epoch
-        perm = np.random.permutation(n_samples)
-        XTrain = XTrain[perm,:]
-        YTrain = YTrain[perm]
+    # much faster than iterating model.fit
+    model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose, epochs=n_iterations, shuffle=True)
+    pred_train = model.predict(XTrain)
+    pred_valid = model.predict(XValid)
+    pred_test = model.predict(XTest)
+    RMSE_train.append(np.sqrt(np.mean(np.square(YTrain - pred_train ) ) ))
+    RMSE_valid.append(np.sqrt(np.mean(np.square(YValid - pred_valid ) ) ))
+    RMSE_test.append(np.sqrt(np.mean(np.square(YTest - pred_test ) ) ))
+    pred_test_store.append(pred_test)
+
+    if False:
+        for i in range(n_iterations):
+            #shuffle training data new in every epoch
+            perm = np.random.permutation(n_samples)
+            XTrain = XTrain[perm,:]
+            YTrain = YTrain[perm]
 
 
-        ## do (possibly additional) training
-        model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose)
+            ## do (possibly additional) training
+            model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose)
 
-        pred_train = model.predict(XTrain)
-        pred_test = model.predict(XTest)
-        pred_valid = model.predict(XValid)
-        #pred_train = EvalTestset(sess, X, Y, XTrain, YTrain, model)
-        #pred_test = EvalTestset(sess, X, Y, XTest, YTest, model)
-        # pred_train = sess.run(prediction, feed_dict={X: XTrain, Y: YTrain})
-        # pred_valid = sess.run(prediction, feed_dict={X: XValid[:128], Y: YValid[:128]})
-        # pred_test = sess.run(prediction, feed_dict={X: XTest, Y: YTest})
-        pred_test_store.append(pred_test)
+            pred_train = model.predict(XTrain)
+            pred_test = model.predict(XTest)
+            pred_valid = model.predict(XValid)
+            #pred_train = EvalTestset(sess, X, Y, XTrain, YTrain, model)
+            #pred_test = EvalTestset(sess, X, Y, XTest, YTest, model)
+            # pred_train = sess.run(prediction, feed_dict={X: XTrain, Y: YTrain})
+            # pred_valid = sess.run(prediction, feed_dict={X: XValid[:128], Y: YValid[:128]})
+            # pred_test = sess.run(prediction, feed_dict={X: XTest, Y: YTest})
+            pred_test_store.append(pred_test)
 
-        diff_train = YTrain - pred_train
-        RMSE_train.append(np.sqrt(np.mean(np.square(diff_train ) ) ))
+            diff_train = YTrain - pred_train
+            RMSE_train.append(np.sqrt(np.mean(np.square(diff_train ) ) ))
 
-        diff_valid = YValid - pred_valid
-        RMSE_valid.append(np.sqrt(np.mean(np.square(diff_valid ) ) ) )
+            diff_valid = YValid - pred_valid
+            RMSE_valid.append(np.sqrt(np.mean(np.square(diff_valid ) ) ) )
 
-        diff_test = YTest - pred_test
-        RMSE_test.append(np.sqrt( np.mean(np.square(diff_test ) ) ) )
-        if verbose:
-            printstring = "Epoch: {}, Train/Test RMSE: {}"\
-                    .format(i, np.array([RMSE_train[-1], RMSE_test[-1]]))
-            print (printstring)
+            diff_test = YTest - pred_test
+            RMSE_test.append(np.sqrt( np.mean(np.square(diff_test ) ) ) )
+            if verbose:
+                printstring = "Epoch: {}, Train/Test RMSE: {}"\
+                        .format(i, np.array([RMSE_train[-1], RMSE_test[-1]]))
+                print (printstring)
 
 
     # minimum validation error

@@ -2,8 +2,9 @@ import numpy as np
 from kmodes.kmodes import KModes
 
 class modelInterpreter(object):
-    def __init__(self, model, tree_model):
-        print("Model Interpreting...")
+    def __init__(self, model, tree_model, verbose=True):
+        if verbose:
+            print("Model Interpreting...")
         self.tree_model = tree_model
         if tree_model == 'randomforest' or tree_model == 'bart':
             from forest_functions import GetTreeSplits, GetChildren
