@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import pickle as pk
 from dataloader import load_data
 from forest_fitting import fit_random_forest
 from bart import fit_bart
@@ -116,6 +117,7 @@ if __name__ == "__main__":
     parser.add_argument('-p','--power', default=2, type=float, help='BART power parameter')
     parser.add_argument('-b','--base', default=.95, type=float, help='BART base parameter')
     parser.add_argument('-v','--verbose', default=False, action="store_true", help='Verbose flag')
+    parser.add_argument('-o','--output', default='', help='File to save output')
     parser.add_argument('-d','--depth', default=6, type=int, help='RF max depth')
     parser.add_argument('-l','--tree_lr', default=0.15, type=float, help='RF learning rate')
     parser.add_argument('--maxleaf', default=100, type=int, help='RF max number of leaves')
@@ -130,8 +132,7 @@ if __name__ == "__main__":
         args.method=['randomforest']
     args.method = set(args.method)
     if args.all_data:
-        args.dataset = dataset_names[:]
-        args.dataset.pop(-1)
+        args.dataset = dataset_names[:-1]
     if not args.dataset:
         args.dataset=['wisconsin']
     args.dataset = set(args.dataset)
@@ -156,3 +157,8 @@ if __name__ == "__main__":
             models[(dataset, tree_model)] = model
     if args.verbose:
         print(res)
+    if args.output:
+        with open(args.output,'w') as f:
+            pk.dump(res, f)
+        with open(args.output+'.model','w') as f:
+            pk.dump(models, f)
