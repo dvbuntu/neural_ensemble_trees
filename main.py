@@ -17,9 +17,11 @@ from feedforward import run_neural_net
 from initialiser import get_network_initialisation_parameters
 from individually_trained import individually_trained_networks
 
-# set seed and printoptions.
-np.random.seed(44)
+# printoptions.
 np.set_printoptions(precision=4, suppress=True)
+
+# all datsets
+dataset_names = ["boston", "concrete", "crimes", "fires", "mpg", "wisconsin", "yahoo", "protein"]
 
 
 def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
@@ -33,6 +35,7 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     verbose=False,
     strength01=100,
     strength12=1,
+    save_model=False
     ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
@@ -42,8 +45,8 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     - a neural random forest (method 2)
     """
     # pick a regression dataset
-    dataset_names = ["boston", "concrete", "crimes", "fires", "mpg", "wisconsin", "protein", "yahoo"]
     if not dataset_name or dataset_name not in dataset_names:
+        warnings.warn(f'{dataset_name} is not in list {dataset_names}, using wisconsin instead')
         dataset_name = "wisconsin"  # set as default dataset
 
     # load the dataset, with randomised train/dev/test split
@@ -92,7 +95,11 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
 
     if verbose:
         print("RMSE:", results)
-    return results, model
+    if save_model:
+        return results, model
+    else:
+        del model
+        return results, None
 
 
 
@@ -116,16 +123,23 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=44, type=int, help='Random seed')
     parser.add_argument('--strength01', default=100, type=float, help='Splitting node NN conversion strength')
     parser.add_argument('--strength12', default=1, type=float, help='Leaf node NN conversion strength')
+    parser.add_argument('--save-model', default=False, action='store_true', help='Flag to return models as well as results (consumes memory)')
+    parser.add_argument('--all-data', default=False, action='store_true', help='Flag to run on all datasets (except protein, which is big)')
     args = parser.parse_args()
     if not args.method:
         args.method=['randomforest']
     args.method = set(args.method)
+    if args.all_data:
+        args.dataset = dataset_names[:]
+        args.dataset.pop(-1)
     if not args.dataset:
         args.dataset=['wisconsin']
     args.dataset = set(args.dataset)
     res = dict()
-    for dataset in tqdm(args.dataset):
-        for tree_model in tqdm(args.method):
+    models = dict()
+    np.random.seed(args.seed)
+    for dataset in tqdm(sorted(args.dataset)):
+        for tree_model in tqdm(sorted(args.method)):
             ans, model = neural_random_forest(dataset, tree_model,
                     args.ntrees,
                     args.depth,
@@ -136,7 +150,9 @@ if __name__ == "__main__":
                     args.base,
                     args.verbose,
                     args.strength01,
-                    args.strength12)
+                    args.strength12,
+                    args.save_model)
             res[(dataset, tree_model)] = ans
+            models[(dataset, tree_model)] = model
     if args.verbose:
         print(res)
