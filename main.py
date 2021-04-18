@@ -36,7 +36,8 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     verbose=False,
     strength01=100,
     strength12=1,
-    save_model=False
+    save_model=False,
+    n_iterations=30
     ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
@@ -73,16 +74,17 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=HL1N, HL2N=HL2N, verbose=verbose)
+    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=HL1N, HL2N=HL2N, verbose=verbose, n_iterations=n_iterations)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N)
-    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N)
-    method2_sparse_fresh,M4 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False)
+    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations)
+    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations)
+    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations)
+    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations)
 
     results = {
         tree_model: model_results[2],
@@ -90,6 +92,7 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
         # "NRF1 full": method1_full,
         # "NRF1 sparse": method1_sparse,
         "NRF2 full": method2_full,
+        "NRF2 full no weights": method2_full_fresh,
         "NRF2 sparse": method2_sparse,
         "NRF2 sparse no weights": method2_sparse_fresh,
         }
@@ -158,7 +161,7 @@ if __name__ == "__main__":
     if args.verbose:
         print(res)
     if args.output:
-        with open(args.output,'w') as f:
+        with open(args.output,'wb') as f:
             pk.dump(res, f)
-        with open(args.output+'.model','w') as f:
+        with open(args.output+'.model','wb') as f:
             pk.dump(models, f)
