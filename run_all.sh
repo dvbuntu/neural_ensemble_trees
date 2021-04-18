@@ -2,7 +2,7 @@
 
 
 # separate processes b/c TF2 chokes on memory
-for i in {4..9}
+for i in {0..9}
 do
 	python3 main.py -o wisconsin_$i.out -m bart -m randomforest -s wisconsin --seed $i
 	#python3 main.py -o wisconsin_$i.out -m bart -m randomforest -s concrete --seed $i # OOM error, tf is garbage
