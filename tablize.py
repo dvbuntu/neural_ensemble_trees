@@ -68,7 +68,7 @@ df_out = pd.DataFrame(columns=['Dataset', 'Forest', 'NN2',
                             ])
 
 formatted = []
-for name in set(df['Dataset']):
+for name in sorted(set(df['Dataset'])):
     M = df[df['Dataset'] == name].mean()
     S = df[df['Dataset'] == name].std()
     formatted.append([name] + [f'{m:5.2f} ({s:5.2f})' for m,s in zip(M,S)])
