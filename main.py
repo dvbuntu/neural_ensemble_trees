@@ -29,15 +29,19 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     ntrees = 150,
     depth = 6,
     tree_lr = 0.15,
-    maxleaf = 100,
+    maxleaf = None,
     mindata = 40,
+    alpha = 0.5,
+    beta = 1,
     power = 2,
     base = .95,
     verbose=False,
     strength01=100,
     strength12=1,
     save_model=False,
-    n_iterations=30
+    n_iterations=30,
+    nn1=100,
+    nn2=100
     ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
@@ -61,9 +65,9 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
 
     # train a random regression forest model
     if tree_model == 'randomforest':
-        model, model_results = fit_random_forest(data, ntrees, depth, verbose=verbose)
+        model, model_results = fit_random_forest(data, ntrees, depth, verbose=verbose, max_leaf_nodes=maxleaf)
     elif tree_model == 'bart':
-        model, model_results = fit_bart(data, ntrees, verbose=verbose, power=power, base=base)
+        model, model_results = fit_bart(data, ntrees, verbose=verbose, power=power, base=base, a=alpha, b=beta)
     else:
         model, model_results = TrainGBDT(data, lr=tree_lr, num_trees=ntrees, maxleaf=maxleaf, mindata=mindata)
 
@@ -74,17 +78,17 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=HL1N, HL2N=HL2N, verbose=verbose, n_iterations=n_iterations)
+    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=nn1, HL2N=nn2, verbose=verbose, n_iterations=n_iterations)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations)
-    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations)
-    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations)
-    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations)
+    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr)
+    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr)
+    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr)
+    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr)
 
     results = {
         tree_model: model_results[2],
@@ -116,15 +120,20 @@ if __name__ == "__main__":
     parser.add_argument('-s','--dataset', action='append',
                             default=[],
                             help='Add this data (wisconsin, etc)')
+    parser.add_argument('-e','--epochs', default=30, type=int, help='Train for this many epochs')
     parser.add_argument('-n','--ntrees', default=150, type=int, help='Use this many trees')
+    parser.add_argument('--alpha', default=0.5, type=float, help='BART alpha parameter')
+    parser.add_argument('--beta', default=1, type=float, help='BART beta parameter')
     parser.add_argument('-p','--power', default=2, type=float, help='BART power parameter')
     parser.add_argument('-b','--base', default=.95, type=float, help='BART base parameter')
     parser.add_argument('-v','--verbose', default=False, action="store_true", help='Verbose flag')
     parser.add_argument('-o','--output', default='', help='File to save output')
     parser.add_argument('-d','--depth', default=6, type=int, help='RF max depth')
-    parser.add_argument('-l','--tree_lr', default=0.15, type=float, help='RF learning rate')
-    parser.add_argument('--maxleaf', default=100, type=int, help='RF max number of leaves')
+    parser.add_argument('-l','--tree_lr', default=0.15, type=float, help='Learning rate')
+    parser.add_argument('--maxleaf', default=None, type=int, help='RF max number of leaves')
     parser.add_argument('--mindata', default=40, type=int, help='RF min data required')
+    parser.add_argument('--nn1', default=100, type=int, help='Neural Network first layer size')
+    parser.add_argument('--nn2', default=100, type=int, help='Neural Network 2nd layer size')
     parser.add_argument('--seed', default=44, type=int, help='Random seed')
     parser.add_argument('--strength01', default=100, type=float, help='Splitting node NN conversion strength')
     parser.add_argument('--strength12', default=1, type=float, help='Leaf node NN conversion strength')
@@ -150,15 +159,20 @@ if __name__ == "__main__":
                     args.tree_lr,
                     args.maxleaf,
                     args.mindata,
+                    args.alpha,
+                    args.beta,
                     args.power,
                     args.base,
                     args.verbose,
                     args.strength01,
                     args.strength12,
-                    args.save_model)
+                    args.save_model,
+                    args.epochs,
+                    args.nn1,
+                    args.nn2)
             res[(dataset, tree_model)] = ans
             models[(dataset, tree_model)] = model
-    if args.verbose:
+    if args.verbose or not args.output:
         print(res)
     if args.output:
         with open(args.output,'wb') as f:

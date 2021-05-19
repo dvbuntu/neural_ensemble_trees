@@ -11,7 +11,7 @@ bart = importr('BART')
 wbart = bart.wbart
 
 # TODO: set bart params here
-def fit_bart(data, ntrees=30, random_state=42, verbose=False, power=2, base=.95):
+def fit_bart(data, ntrees=30, random_state=42, verbose=False, power=2, base=.95, a=0.5, b=1):
     """
     Fits a bart forest to some data and returns the model.
 
@@ -31,7 +31,7 @@ def fit_bart(data, ntrees=30, random_state=42, verbose=False, power=2, base=.95)
         printevery = 100
     else:
         printevery = 100000 # can't see how to silence bart
-    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees, power=power, base=base, printevery=printevery)
+    rb = wbart(rx,ry,rxtest, nkeeptreedraws=1, ntree=ntrees, power=power, base=base, printevery=printevery, a=a, b=b)
 
     # lines of trees
     treelines = rb.rx2['treedraws'].rx2['trees'][0].split('\n')

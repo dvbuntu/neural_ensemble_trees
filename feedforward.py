@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 import math
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 '''
 Keras-based feedforward module
@@ -63,7 +65,9 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
                 activation=tf.nn.tanh,
                 )(model)
 
-        model2 = tf.clip_by_value(model2, -1,0) + 1 # rescale to avoid bad clipping
+        # orchards use sigmoid
+        if init_parameters:
+            model2 = tf.clip_by_value(model2, -1,0) + 1 # rescale to avoid bad clipping
         predict = tf.keras.layers.Dense(1)(model2)
 
         model = tf.keras.Model(inputs=my_input, outputs=predict)
@@ -207,7 +211,9 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
         print ("test:", RMSE_test[amin] )
 
 
-    if forest is None:  # vanilla neural net
+    #if forest is None:  # vanilla neural net
+    ## don't ever want the old model
+    if True:
         return RMSE_test[amin], pred_test_store[amin]
     else:               # RF-initialised neural net
 
@@ -216,7 +222,7 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
 
         # compute RF validation performance
         RF_predictions_valid = forest.predict(XValid)
-        RF_score_valid = np.mean (np.square(RF_predictions_valid-np.squeeze(YValid) ) )
+        RF_score_valid = np.sqrt(np.mean (np.square(RF_predictions_valid-np.squeeze(YValid) ) ))
 
         # if RF validation performance is better than for neural model
         if RF_score_valid < RMSE_valid[amin]:

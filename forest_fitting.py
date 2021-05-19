@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
 
-def fit_random_forest(data, ntrees=30, depth=6, random_state=42, verbose=False):
+def fit_random_forest(data, ntrees=30, depth=6, random_state=42, verbose=False, max_leaf_nodes=None):
     """
     Fits a random regression forest to some data and returns the model.
     """
@@ -16,7 +16,7 @@ def fit_random_forest(data, ntrees=30, depth=6, random_state=42, verbose=False):
                                min_samples_leaf=1,
                                min_weight_fraction_leaf=0.0,
                                max_features='auto',
-                               max_leaf_nodes=None,
+                               max_leaf_nodes=max_leaf_nodes,
                                bootstrap=False, oob_score=False,
                                n_jobs=1,
                                random_state=random_state,
