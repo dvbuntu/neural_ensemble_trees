@@ -16,8 +16,8 @@ args = parser.parse_args()
 files = args.file
 
 df = pd.DataFrame(columns=['Dataset', 'Forest', 'NN2',
-                            'NF2 Fresh', 'NF2 Weights',
-                            'NF2 Sparse Fresh', 'NF2 Sparse Weights'
+                            'Orchard Fresh', 'Orchard Weights',
+                            'Orchard Sparse Fresh', 'Orchard Sparse Weights'
                             ])
 #                            'NN2 BART',
 #                            'NBART2 Fresh', 'NBART2 Weights',
@@ -43,10 +43,10 @@ for base in files:
         row['Dataset']  = name + ' RF'
         row['Forest'] = res[(name, 'randomforest')]['randomforest']
         row['NN2'] = res[(name, 'randomforest')]['NN2']
-        row['NF2 Fresh'] = res[(name, 'randomforest')]['NRF2 full no weights']
-        row['NF2 Weights'] = res[(name, 'randomforest')]['NRF2 full']
-        row['NF2 Sparse Fresh'] = res[(name, 'randomforest')]['NRF2 sparse no weights']
-        row['NF2 Sparse Weights'] = res[(name, 'randomforest')]['NRF2 sparse']
+        row['Orchard Fresh'] = res[(name, 'randomforest')]['NRF2 full no weights']
+        row['Orchard Weights'] = res[(name, 'randomforest')]['NRF2 full']
+        row['Orchard Sparse Fresh'] = res[(name, 'randomforest')]['NRF2 sparse no weights']
+        row['Orchard Sparse Weights'] = res[(name, 'randomforest')]['NRF2 sparse']
 
         rows.append(row)
 
@@ -54,17 +54,17 @@ for base in files:
         row2['Dataset']  = name + ' BART'
         row2['Forest'] = res[(name, 'bart')]['bart']
         row2['NN2'] = res[(name, 'bart')]['NN2']
-        row2['NF2 Fresh'] = res[(name, 'bart')]['NRF2 full no weights']
-        row2['NF2 Weights'] = res[(name, 'bart')]['NRF2 full']
-        row2['NF2 Sparse Fresh'] = res[(name, 'bart')]['NRF2 sparse no weights']
-        row2['NF2 Sparse Weights'] = res[(name, 'bart')]['NRF2 sparse']
+        row2['Orchard Fresh'] = res[(name, 'bart')]['NRF2 full no weights']
+        row2['Orchard Weights'] = res[(name, 'bart')]['NRF2 full']
+        row2['Orchard Sparse Fresh'] = res[(name, 'bart')]['NRF2 sparse no weights']
+        row2['Orchard Sparse Weights'] = res[(name, 'bart')]['NRF2 sparse']
         rows.append(row2)
 
 df = pd.concat([df, pd.DataFrame(rows)], sort=False)
 
 df_out = pd.DataFrame(columns=['Dataset', 'Forest', 'NN2',
-                            'NF2 Fresh', 'NF2 Weights',
-                            'NF2 Sparse Fresh', 'NF2 Sparse Weights'
+                            'Orchard Fresh', 'Orchard Weights',
+                            'Orchard Sparse Fresh', 'Orchard Sparse Weights'
                             ])
 
 formatted = []

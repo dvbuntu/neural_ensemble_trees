@@ -41,7 +41,9 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     save_model=False,
     n_iterations=30,
     nn1=100,
-    nn2=100
+    nn2=100,
+    regularize=0.01,
+    reg_type='l2'
     ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
@@ -78,17 +80,17 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=nn1, HL2N=nn2, verbose=verbose, n_iterations=n_iterations)
+    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=nn1, HL2N=nn2, verbose=verbose, n_iterations=n_iterations, regularize=regularize, reg_type=reg_type)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr)
-    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr)
-    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr)
-    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr)
+    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
+    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
+    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
+    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
 
     results = {
         tree_model: model_results[2],
@@ -120,16 +122,18 @@ if __name__ == "__main__":
     parser.add_argument('-s','--dataset', action='append',
                             default=[],
                             help='Add this data (wisconsin, etc)')
-    parser.add_argument('-e','--epochs', default=30, type=int, help='Train for this many epochs')
-    parser.add_argument('-n','--ntrees', default=150, type=int, help='Use this many trees')
-    parser.add_argument('--alpha', default=0.5, type=float, help='BART alpha parameter')
-    parser.add_argument('--beta', default=1, type=float, help='BART beta parameter')
+    parser.add_argument('-e','--epochs', default=100, type=int, help='Train for this many epochs')
+    parser.add_argument('-n','--ntrees', default=30, type=int, help='Use this many trees')
+    parser.add_argument('--alpha', default=0.5, type=float, help='BART alpha parameter')  # does not change anything
+    parser.add_argument('--beta', default=1, type=float, help='BART beta parameter')  # does not change anything
     parser.add_argument('-p','--power', default=2, type=float, help='BART power parameter')
     parser.add_argument('-b','--base', default=.95, type=float, help='BART base parameter')
     parser.add_argument('-v','--verbose', default=False, action="store_true", help='Verbose flag')
     parser.add_argument('-o','--output', default='', help='File to save output')
     parser.add_argument('-d','--depth', default=6, type=int, help='RF max depth')
-    parser.add_argument('-l','--tree_lr', default=0.15, type=float, help='Learning rate')
+    parser.add_argument('-l','--tree_lr', default=0.01, type=float, help='Learning rate')
+    parser.add_argument('-r','--regularize', default=0.01, type=float, help='Regularization parameter')
+    parser.add_argument('--reg-type', default='l2', type=str, help='Regularization type (L2, L1, etc)')
     parser.add_argument('--maxleaf', default=None, type=int, help='RF max number of leaves')
     parser.add_argument('--mindata', default=40, type=int, help='RF min data required')
     parser.add_argument('--nn1', default=100, type=int, help='Neural Network first layer size')
@@ -169,7 +173,9 @@ if __name__ == "__main__":
                     args.save_model,
                     args.epochs,
                     args.nn1,
-                    args.nn2)
+                    args.nn2,
+                    args.regularize,
+                    args.reg_type)
             res[(dataset, tree_model)] = ans
             models[(dataset, tree_model)] = model
     if args.verbose or not args.output:

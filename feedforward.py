@@ -8,6 +8,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 Keras-based feedforward module
 '''
 
+checkpoint_filepath = '/tmp/checkpoint'
+
 ## use weight constraint to enforce sparse connections, not efficient...
 class SparselyConnected(tf.keras.constraints.Constraint):
   """Constrains weight tensors to be sparsely connected according to `adj_matrix`"""
@@ -22,7 +24,8 @@ class SparselyConnected(tf.keras.constraints.Constraint):
     return {'adj_matrix': self.adj_matrix}
 
 def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
-                        keep_sparse=True, n_layers=2, use_weights=True):
+                        keep_sparse=True, n_layers=2, use_weights=True,
+                        regularize=0.1, reg_type=tf.keras.regularizers.l2):
     """
     Defines a Multilayer Perceptron (MLP) model.
     Inputs:
@@ -50,25 +53,31 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
             mask1 = tf.cast(W1 != 0, tf.float32)
             model = tf.keras.layers.Dense(HL1N,
                 activation=tf.nn.tanh,
+                kernel_regularizer=reg_type(regularize),
                 kernel_constraint=SparselyConnected(mask1))(my_input)
         else:
             model = tf.keras.layers.Dense(HL1N,
                 activation=tf.nn.tanh,
+                kernel_regularizer=reg_type(regularize),
                 )(my_input)
         if init_parameters and keep_sparse:
             mask2 = tf.cast(W2 != 0, tf.float32)
             model2 = tf.keras.layers.Dense(HL2N,
                 activation=tf.nn.tanh,
+                kernel_regularizer=reg_type(regularize),
                 kernel_constraint=SparselyConnected(mask2))(model)
         else:
             model2 = tf.keras.layers.Dense(HL2N,
                 activation=tf.nn.tanh,
+                kernel_regularizer=reg_type(regularize),
                 )(model)
 
         # orchards use sigmoid
         if init_parameters:
             model2 = tf.clip_by_value(model2, -1,0) + 1 # rescale to avoid bad clipping
-        predict = tf.keras.layers.Dense(1)(model2)
+        predict = tf.keras.layers.Dense(1,
+                        kernel_regularizer=reg_type(regularize),
+                    )(model2)
 
         model = tf.keras.Model(inputs=my_input, outputs=predict)
     #model.set_weights([W1,b1,W2,b2,W3, np.array([np.sum(W3)])])
@@ -76,16 +85,25 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
             model.set_weights([W1,b1,W2,b2,2*W3, np.array([0])]) # b/c we rescale, double w3 and no need for bias term
     # standard 1-layer MLP
     elif n_layers == 1:
-        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
-        predict = tf.keras.layers.Dense(1)(model)
+        model = tf.keras.layers.Dense(HL1N,
+                kernel_regularizer=reg_type(regularize),
+                activation=tf.nn.tanh)(my_input)
+        predict = tf.keras.layers.Dense(1,
+                        kernel_regularizer=reg_type(regularize),
+                    )(model)
         model = tf.keras.Model(inputs=my_input, outputs=predict)
     # fully connect 3-layer MLP of same size as forest
     elif n_layers == 3:
-        model = tf.keras.layers.Dense(HL1N, activation=tf.nn.tanh)(my_input)
+        model = tf.keras.layers.Dense(HL1N,
+                kernel_regularizer=reg_type(regularize),
+                activation=tf.nn.tanh)(my_input)
         model2 = tf.keras.layers.Dense(HL2N,
-            activation=tf.nn.tanh,
-            )(model)
-        predict = tf.keras.layers.Dense(1)(model2)
+                    kernel_regularizer=reg_type(regularize),
+                    activation=tf.nn.tanh,
+                )(model)
+        predict = tf.keras.layers.Dense(1,
+                        kernel_regularizer=reg_type(regularize),
+                    )(model2)
         model = tf.keras.Model(inputs=my_input, outputs=predict)
     return model
     #model.set_weights([W1,b1,W2,b2,W3, 2*W3[-1]]) # last tree is bias
@@ -105,7 +123,8 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
 
 def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
                    verbose=True, learning_rate=0.001, forest=None, keep_sparse=True,
-                   batchsize=32, n_iterations=30, debug=False, use_weights=True):
+                   batchsize=32, n_iterations=30, debug=False, use_weights=True,
+                   regularize=0.1, reg_type=tf.keras.regularizers.l2):
     """
     Trains / evaluates a Multilayer perceptron (MLP), potentially with a prespecified
     weight matrix initialisation.
@@ -135,9 +154,15 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     batchsize = min(batchsize, n_samples)
     #ops.reset_default_graph()
 
+    if isinstance(reg_type,str):
+        if reg_type.lower().startswith('l1'):
+            reg_type = tf.keras.regularizers.l1
+        elif reg_type.lower().startswith('l2'):
+            reg_type = tf.keras.regularizers.l2
+
 
     # forward pass
-    model = define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers, use_weights=use_weights)
+    model = define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers, use_weights=use_weights, regularize=regularize, reg_type=reg_type)
     #prediction = lambda X: define_forward_pass(X, init_parameters, n_inputs, HL1N, HL2N, n_layers=n_layers)
 
     # defining a RMSE objective function
@@ -159,7 +184,20 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     pred_test_store = []
 
     # much faster than iterating model.fit
-    model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose, epochs=n_iterations, shuffle=True)
+    ## update this to do checkpointing
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_filepath,
+        save_weights_only=True,
+        monitor='val_loss',
+        mode='min',
+        save_best_only=True)
+
+    model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose,
+            epochs=n_iterations, shuffle=True,
+            callbacks=[model_checkpoint_callback],
+            validation_data=(XValid,YValid))
+    # restore best weights
+    model.load_weights(checkpoint_filepath)
     pred_train = model.predict(XTrain)
     pred_valid = model.predict(XValid)
     pred_test = model.predict(XTest)
