@@ -140,7 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('--nn2', default=100, type=int, help='Neural Network 2nd layer size')
     parser.add_argument('--seed', default=44, type=int, help='Random seed')
     parser.add_argument('--strength01', default=100, type=float, help='Splitting node NN conversion strength')
-    parser.add_argument('--strength12', default=1, type=float, help='Leaf node NN conversion strength')
+    parser.add_argument('--strength12', default=100, type=float, help='Leaf node NN conversion strength')
     parser.add_argument('--save-model', default=False, action='store_true', help='Flag to return models as well as results (consumes memory)')
     parser.add_argument('--all-data', default=False, action='store_true', help='Flag to run on all datasets (except protein, which is big)')
     args = parser.parse_args()

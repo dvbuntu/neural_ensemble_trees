@@ -190,7 +190,13 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
         save_weights_only=True,
         monitor='val_loss',
         mode='min',
-        save_best_only=True)
+        save_best_only=True,
+        )
+
+    # save a model prior to training
+    model.save_weights(checkpoint_filepath+'_init')
+    pred_valid = model.predict(XValid)
+    rmse_v = np.sqrt(np.mean(np.square(YValid - pred_valid ) ) )
 
     model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose,
             epochs=n_iterations, shuffle=True,
@@ -198,16 +204,22 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
             validation_data=(XValid,YValid))
     # restore best weights
     model.load_weights(checkpoint_filepath)
+    # check weights prior to training
+    pred_valid = model.predict(XValid)
+    if np.sqrt(np.mean(np.square(YValid - pred_valid ) ) ) > rmse_v:
+        model.load_weights(checkpoint_filepath+'_init')
+        print(f'\n\n\n\n*********Using orig, {rmse_v}**********\n\n\n\n')
+
     pred_train = model.predict(XTrain)
     pred_valid = model.predict(XValid)
     pred_test = model.predict(XTest)
-    RMSE_train.append(np.sqrt(np.mean(np.square(YTrain - pred_train ) ) ))
-    RMSE_valid.append(np.sqrt(np.mean(np.square(YValid - pred_valid ) ) ))
-    RMSE_test.append(np.sqrt(np.mean(np.square(YTest - pred_test ) ) ))
+    RMSE_train.append(np.sqrt(np.mean(np.square(YTrain - np.squeeze(pred_train) ) ) ))
+    RMSE_valid.append(np.sqrt(np.mean(np.square(YValid - np.squeeze(pred_valid) ) ) ))
+    RMSE_test.append(np.sqrt(np.mean(np.square(YTest - np.squeeze(pred_test) ) ) ))
     pred_test_store.append(pred_test)
 
     if False:
-        for i in range(n_iterations):
+        for i in range(n_iterations+1):
             #shuffle training data new in every epoch
             perm = np.random.permutation(n_samples)
             XTrain = XTrain[perm,:]
@@ -215,7 +227,9 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
 
 
             ## do (possibly additional) training
-            model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose)
+            ## first iteration is just plain results w/o extra training
+            if i:
+                model.fit(XTrain, YTrain, epochs=1, batch_size=batchsize, verbose=verbose)
 
             pred_train = model.predict(XTrain)
             pred_test = model.predict(XTest)
