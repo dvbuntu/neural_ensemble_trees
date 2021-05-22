@@ -208,7 +208,6 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     pred_valid = model.predict(XValid)
     if np.sqrt(np.mean(np.square(YValid - pred_valid ) ) ) > rmse_v:
         model.load_weights(checkpoint_filepath+'_init')
-        print(f'\n\n\n\n*********Using orig, {rmse_v}**********\n\n\n\n')
 
     pred_train = model.predict(XTrain)
     pred_valid = model.predict(XValid)
