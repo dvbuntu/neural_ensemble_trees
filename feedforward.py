@@ -41,7 +41,7 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
             but the number of neurons is then defined by HL1N, HL2N.
             Note: The RF initialisation can only be used with n_layers = 2.
     Outputs:
-        - predictions: tf tensor holding model predictions
+        - model: keras model to create predictions
     """
 
     if init_parameters:
@@ -124,7 +124,7 @@ def define_forward_pass(init_parameters, n_inputs, HL1N, HL2N, sigma=1.0,
 def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
                    verbose=True, learning_rate=0.001, forest=None, keep_sparse=True,
                    batchsize=32, n_iterations=30, debug=False, use_weights=True,
-                   regularize=0.1, reg_type=tf.keras.regularizers.l2):
+                   regularize=0.1, reg_type=tf.keras.regularizers.l2, seed=42):
     """
     Trains / evaluates a Multilayer perceptron (MLP), potentially with a prespecified
     weight matrix initialisation.
@@ -149,6 +149,7 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
         pdb.set_trace()
     if verbose:
         print("training MLP...")
+    tf.random.set_seed(seed)
     XTrain, XValid, XTest, YTrain, YValid, YTest = data
     n_samples, n_inputs = XTrain.shape
     batchsize = min(batchsize, n_samples)
@@ -196,7 +197,8 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     # save a model prior to training
     model.save_weights(checkpoint_filepath+'_init')
     pred_valid = model.predict(XValid)
-    rmse_v = np.sqrt(np.mean(np.square(YValid - pred_valid ) ) )
+    rmse_v = np.sqrt(np.mean(np.square(np.squeeze(YValid) - np.squeeze(pred_valid) ) ) )
+    rmse_t = np.sqrt(np.mean(np.square(np.squeeze(YTest) - np.squeeze(model.predict(XTest)) ) ) )
 
     model.fit(XTrain, YTrain, batch_size=batchsize, verbose=verbose,
             epochs=n_iterations, shuffle=True,
@@ -206,15 +208,21 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     model.load_weights(checkpoint_filepath)
     # check weights prior to training
     pred_valid = model.predict(XValid)
-    if np.sqrt(np.mean(np.square(YValid - pred_valid ) ) ) > rmse_v:
+
+    # for debugging
+    #if init_parameters and use_weights:
+    #    raise ValueError
+
+    # reset to better original weights
+    if np.sqrt(np.mean(np.square(np.squeeze(YValid) - np.squeeze(pred_valid) ) ) ) > rmse_v:
         model.load_weights(checkpoint_filepath+'_init')
 
     pred_train = model.predict(XTrain)
     pred_valid = model.predict(XValid)
     pred_test = model.predict(XTest)
-    RMSE_train.append(np.sqrt(np.mean(np.square(YTrain - np.squeeze(pred_train) ) ) ))
-    RMSE_valid.append(np.sqrt(np.mean(np.square(YValid - np.squeeze(pred_valid) ) ) ))
-    RMSE_test.append(np.sqrt(np.mean(np.square(YTest - np.squeeze(pred_test) ) ) ))
+    RMSE_train.append(np.sqrt(np.mean(np.square(np.squeeze(YTrain) - np.squeeze(pred_train) ) ) ))
+    RMSE_valid.append(np.sqrt(np.mean(np.square(np.squeeze(YValid) - np.squeeze(pred_valid) ) ) ))
+    RMSE_test.append(np.sqrt(np.mean(np.square(np.squeeze(YTest) - np.squeeze(pred_test) ) ) ))
     pred_test_store.append(pred_test)
 
     if False:

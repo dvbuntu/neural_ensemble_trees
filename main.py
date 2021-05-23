@@ -26,9 +26,9 @@ dataset_names = ["boston", "concrete", "crimes", "fires", "mpg", "wisconsin", "y
 
 
 def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
-    ntrees = 150,
+    ntrees = 30,
     depth = 6,
-    tree_lr = 0.15,
+    tree_lr = 0.01,
     maxleaf = None,
     mindata = 40,
     alpha = 0.5,
@@ -37,13 +37,14 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     base = .95,
     verbose=False,
     strength01=100,
-    strength12=1,
+    strength12=100,
     save_model=False,
     n_iterations=30,
     nn1=100,
     nn2=100,
     regularize=0.01,
-    reg_type='l2'
+    reg_type='l2',
+    seed=42
     ):
     """
     Takes a regression dataset name, and trains/evaluates 4 classifiers:
@@ -58,7 +59,8 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
         dataset_name = "wisconsin"  # set as default dataset
 
     # load the dataset, with randomised train/dev/test split
-    data = load_data(dataset_name, seed=np.random.randint(0,100000,10)[0])
+    #data = load_data(dataset_name, seed=np.random.randint(0,100000,10)[0])
+    data = load_data(dataset_name, seed=seed)
 
     # X: regression input variable matrix, size [n_data_points, n_features]
     # Y: regression output vector, size [n_data_points]
@@ -80,17 +82,17 @@ def neural_random_forest(dataset_name="mpg", tree_model='lightgbm',
     HL1N, HL2N = init_parameters[2].shape
 
     # train a standard 2-layer MLP with HL1N / HL2N hidden neurons in layer 1 / 2.
-    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=nn1, HL2N=nn2, verbose=verbose, n_iterations=n_iterations, regularize=regularize, reg_type=reg_type)
+    NN2,M1 = run_neural_net(data, init_parameters=None, learning_rate=tree_lr, HL1N=nn1, HL2N=nn2, verbose=verbose, n_iterations=n_iterations, regularize=regularize, reg_type=reg_type, seed=seed)
 
     # # train many small networks individually, initial weights from a decision tree (method 1)
     # method1_full,_  = individually_trained_networks(data, ntrees, depth, keep_sparse=False, verbose=False, tree_model=tree_model)
     # method1_sparse,_ = individually_trained_networks(data, ntrees, depth, keep_sparse=True, verbose=False, tree_model=tree_model)
 
     # train one large network with sparse initial weights from random forest parameters (method 2)
-    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
-    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
-    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
-    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type)
+    method2_full,M2 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type, seed=seed)
+    method2_full_fresh,M2_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=False, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type, seed=seed)
+    method2_sparse,M3 = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type, seed=seed)
+    method2_sparse_fresh,M3_f = run_neural_net(data, init_parameters, verbose=verbose, forest=model, keep_sparse=True, HL1N=HL1N, HL2N=HL2N, use_weights=False, n_iterations=n_iterations, learning_rate=tree_lr, regularize=regularize, reg_type=reg_type, seed=seed)
 
     results = {
         tree_model: model_results[2],
@@ -175,7 +177,8 @@ if __name__ == "__main__":
                     args.nn1,
                     args.nn2,
                     args.regularize,
-                    args.reg_type)
+                    args.reg_type,
+                    args.seed)
             res[(dataset, tree_model)] = ans
             models[(dataset, tree_model)] = model
     if args.verbose or not args.output:
