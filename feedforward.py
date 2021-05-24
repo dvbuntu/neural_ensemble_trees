@@ -209,10 +209,6 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     # check weights prior to training
     pred_valid = model.predict(XValid)
 
-    # for debugging
-    #if init_parameters and use_weights:
-    #    raise ValueError
-
     # reset to better original weights
     if np.sqrt(np.mean(np.square(np.squeeze(YValid) - np.squeeze(pred_valid) ) ) ) > rmse_v:
         model.load_weights(checkpoint_filepath+'_init')
@@ -224,6 +220,11 @@ def run_neural_net(data, init_parameters=None, HL1N=20, HL2N=10, n_layers=2,
     RMSE_valid.append(np.sqrt(np.mean(np.square(np.squeeze(YValid) - np.squeeze(pred_valid) ) ) ))
     RMSE_test.append(np.sqrt(np.mean(np.square(np.squeeze(YTest) - np.squeeze(pred_test) ) ) ))
     pred_test_store.append(pred_test)
+
+    # for debugging
+    #if init_parameters and use_weights:
+    #    print(rmse_v, RMSE_valid[0], rmse_t, RMSE_test[0])
+    #    raise ValueError
 
     if False:
         for i in range(n_iterations+1):
