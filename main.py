@@ -134,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument('-o','--output', default='', help='File to save output')
     parser.add_argument('-d','--depth', default=6, type=int, help='RF max depth')
     parser.add_argument('-l','--tree_lr', default=0.01, type=float, help='Learning rate')
-    parser.add_argument('-r','--regularize', default=0.01, type=float, help='Regularization parameter')
+    parser.add_argument('-r','--regularize', default=0.1, type=float, help='Regularization parameter')
     parser.add_argument('--reg-type', default='l2', type=str, help='Regularization type (L2, L1, etc)')
     parser.add_argument('--maxleaf', default=None, type=int, help='RF max number of leaves')
     parser.add_argument('--mindata', default=40, type=int, help='RF min data required')
